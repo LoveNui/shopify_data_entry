@@ -1,0 +1,7 @@
+beautifulsoup4
+requests
+aiohttp
+openai==0.28
+pandas
+openpyxl
+python-dotenv

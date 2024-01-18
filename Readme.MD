@@ -10,6 +10,24 @@ This project has 4 main components.
 
 'Web Scarping' Components is to extract products data and pictures from Ebay website.
 
+#### Dialogflow
+![enter image description here](./diagram/ebay_scraper.jpg)
+
+### Usage
+1)  Install Python and Python libraries
+
+        pip install -r requirements.txt
+
+2)  Set env file
+
+        openai = sk-****************************************
+        xlsx_file = List.xlsx
+
+3)  Run
+
+        python ebay_scraper.py
+
+
 ### 2. Shopify Data Entry
 
 'Shopify Data Entry' Component is to do following tasks:
