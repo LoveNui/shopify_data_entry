@@ -86,17 +86,19 @@ async def scraping(url):
     image_urls=[]
     os.makedirs(title, exist_ok=True)
     for image in images:
-        # try:
-        #     urls = re.findall(r'(https?://\S+)', image['data-srcset'])
-        #     print(urls)
-        #     download_image(url=urls[-1], file_name=f"{str(i+1)}.jpg")
-        # except:
-        if not image['data-zoom-src'] in image_urls and not 'Video' in image['alt']:
+        if not 'Video' in image['alt']:
             try:
-                download_image(url=image['data-zoom-src'], file_name=f"{title}/{str(len(image_urls)+1)}.jpg")
-                image_urls.append(image['data-zoom-src'])
+                urls = re.findall(r'(https?://\S+)', image['data-srcset'])
+                if not urls[-1] in image_urls:
+                    download_image(url=urls[-1], file_name=f"{title}/{str(len(image_urls)+1)}.jpg")
+                    image_urls.append(urls[-1])
             except:
-                pass
+                try:
+                    if not image['data-zoom-src'] in image_urls:
+                        download_image(url=image['data-zoom-src'], file_name=f"{title}/{str(len(image_urls)+1)}.jpg")
+                        image_urls.append(image['data-zoom-src'])
+                except:
+                    pass
     
     # Extract years of products
     car_years = re.findall(r'\b\d{4}\b', title)
