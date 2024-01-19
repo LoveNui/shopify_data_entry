@@ -39,6 +39,8 @@ def download_image(url, file_name):
         print("Failed to download image")
 
 def get_part_number(part_number_string):
+    if part_number_string != "Does not apply" and part_number_string != 'N/A':
+        return None
     if " , " in part_number_string:
         part_number = part_number_string.split(" , ")
     elif ", " in part_number_string:
@@ -51,16 +53,7 @@ def get_part_number(part_number_string):
         part_number = part_number_string.split("/ ")
     elif "/" in part_number_string:
         part_number = part_number_string.split("/")
-    else:
-        if part_number_string != "Does not apply":
-            return part_number_string, [part_number_string]
-        print("Failed to extract part number")
-    
-    print(part_number)
-    if len(part_number) == 1:
-        return part_number[0], part_number
-    else:
-        return part_number.pop(0), part_number
+    return part_number
 
 async def fetch(url):
     # Create HTTP session
@@ -101,7 +94,23 @@ async def scraping(url):
                     pass
     
     # Extract years of products
-    car_years = re.findall(r'\b\d{4}\b', title)
+
+    years = []
+    for i in re.findall(r'\b\d{4}\b|\b\d{2}\b', title):
+        if len(i)==2:
+            if not ("20"+ i) in years:
+                years.append(int("20"+ i))
+        else:
+            if not i in years:
+                years.append(int(i))
+    
+    car_years = []
+    if not years:
+        car_years = None
+    elif len(years) ==  1:
+        car_years = years
+    else:
+        car_years = [min(years), max(years)]
     
     # Extract deatiled infos
     info  = soup.select("div#viTabs_0_is.vim.x-about-this-item div.ux-layout-section-module-evo div.ux-layout-section-evo.ux-layout-section--features")
@@ -133,11 +142,16 @@ async def scraping(url):
     type = product_info.pop("Type") if "Type" in product_info else None
     
     # Part Number and OEM Part Number
-    part_number_string = product_info.pop("OE/OEM Part Number") if "OE/OEM Part Number" in product_info else (product_info.pop('Manufacturer Part Number') if 'Manufacturer Part Number' in product_info else None)
-    if part_number_string:
-        part_number, OEM_part_number = get_part_number(part_number_string)
+    OEM_part_number = get_part_number(product_info.pop("OE/OEM Part Number")) if "OE/OEM Part Number" in product_info else None
+    if OEM_part_number:
+        part_number = OEM_part_number[0]
     else:
-        part_number, OEM_part_number = None, None
+        part_number = None
+    # Manufacturer Part Number
+    Manufacturer_part_number = get_part_number(product_info.pop("Manufacturer Part Number")) if "Manufacturer Part Number" in product_info else None
+
+    # Interchange Part Number
+    Interchange_part_number = get_part_number(product_info.pop("Interchange Part Number")) if "Interchange Part Number" in product_info else ( get_part_number(product_info.pop("Interchange")) if "Interchange" in product_info else None)
     
     # Totals
     info_product = {}
@@ -151,7 +165,9 @@ async def scraping(url):
     info_product['Car Years range'] = car_years
     info_product['Replacement on vehicle'] = replacement_on_vehicle
     info_product['Type'] = type
-    info_product['OEM part number'] = OEM_part_number
+    info_product['Manufacturer Part Number'] = OEM_part_number
+    info_product['Manufacturer Part Number'] = Manufacturer_part_number
+    info_product['Manufacturer Part Number'] = Interchange_part_number
     info_product['Brand'] = "OEM PART"
     info_product['Stock'] = 'In stock'
     info_product['extra'] = product_info
