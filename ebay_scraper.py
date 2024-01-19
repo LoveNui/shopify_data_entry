@@ -196,8 +196,7 @@ async def scraping(url):
 # Run the main function
 
 async def main(list_name):
-    # urls = load_xlsx(list_name)
-    urls = ['https://www.ebay.com/itm/335070026406?hash=item4e03badaa6:g:T54AAOSwEmRlKWEB&amdata=enc%3AAQAIAAAA4LynhxKEBMivr9eMFgmkYmpBbMwY45QFs5W362V2Af3DTy5xybybuXWm%2BTR9ZHpwkJcYYlalvLTfabMCEFkhzSKohRpQt3fjvWcfn6J%2FrDziRlPWjdLEu%2BrLdWNlikCeoFGafxyxtZwFiEnYFaF9OEALiEMDiHdlxgmj4s5cdYooGcnazCcGXThdmOTIJXtSMJg64z4BPkYsPaER2V0LTs3QoCFidOiHOr7GSD9%2FEFJumNTFADSX1PPnPvU%2BT%2Be%2FHm3LxpDdLqG7Dd5KJpvLYYDLi0Q1130DcDtgtMhZOl0t%7Ctkp%3ABk9SR5j7ppWfYw']
+    urls = load_xlsx(list_name)
     products = []
     for i in urls:
         try:
