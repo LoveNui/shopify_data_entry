@@ -1,6 +1,7 @@
 import aiohttp
 import asyncio
 from bs4 import BeautifulSoup
+from datetime import datetime
 import requests
 import os, re, openai, json
 import pandas as pd
@@ -39,7 +40,7 @@ def download_image(url, file_name):
         print("Failed to download image")
 
 def get_part_number(part_number_string):
-    if part_number_string != "Does not apply" and part_number_string != 'N/A':
+    if part_number_string == "Does not apply" and part_number_string == 'N/A':
         return None
     if " , " in part_number_string:
         part_number = part_number_string.split(" , ")
@@ -54,6 +55,38 @@ def get_part_number(part_number_string):
     elif "/" in part_number_string:
         part_number = part_number_string.split("/")
     return part_number
+
+def get_years_from_title(title):
+    years = []
+    year = datetime.now().year
+    for i in re.findall(r'\b\d{4}\b|\b\d{2}\b', title):
+        if len(i)==2:
+            if int("20"+ i) > year:
+                can_year = "19" + i
+            else:
+                can_year = "20" + i
+            try:
+                if int(can_year) > max(years):
+                    years.append(int(can_year))
+            except:
+                years.append(int(can_year))
+        else:
+            if int(i) < year:
+                try:
+                    if int(i) > max(years):
+                        years.append(int(i))
+                except:
+                    years.append(int(i))
+
+    car_years = []
+    if not years:
+        car_years = None
+    elif len(years) ==  1:
+        car_years = years
+    else:
+        car_years = [min(years), max(years)]
+    
+    return car_years
 
 async def fetch(url):
     # Create HTTP session
@@ -77,7 +110,7 @@ async def scraping(url):
     # image download
     images = soup.select('div.ux-image-carousel.img-transition-medium img')
     image_urls=[]
-    os.makedirs(title, exist_ok=True)
+    os.makedirs(f'pictures/{title}', exist_ok=True)
     for image in images:
         if not 'Video' in image['alt']:
             try:
@@ -88,29 +121,14 @@ async def scraping(url):
             except:
                 try:
                     if not image['data-zoom-src'] in image_urls:
-                        download_image(url=image['data-zoom-src'], file_name=f"{title}/{str(len(image_urls)+1)}.jpg")
+                        download_image(url=image['data-zoom-src'], file_name=f"pictures/{title}/{str(len(image_urls)+1)}.jpg")
                         image_urls.append(image['data-zoom-src'])
                 except:
                     pass
     
     # Extract years of products
 
-    years = []
-    for i in re.findall(r'\b\d{4}\b|\b\d{2}\b', title):
-        if len(i)==2:
-            if not ("20"+ i) in years:
-                years.append(int("20"+ i))
-        else:
-            if not i in years:
-                years.append(int(i))
-    
-    car_years = []
-    if not years:
-        car_years = None
-    elif len(years) ==  1:
-        car_years = years
-    else:
-        car_years = [min(years), max(years)]
+    car_years = get_years_from_title(title=title)
     
     # Extract deatiled infos
     info  = soup.select("div#viTabs_0_is.vim.x-about-this-item div.ux-layout-section-module-evo div.ux-layout-section-evo.ux-layout-section--features")
@@ -122,7 +140,7 @@ async def scraping(url):
             value = y.select("div.ux-labels-values__values-content span")
             if len(label):
                 product_info[label[0].text] = value[0].text
-    
+    print(product_info)
     # Get Car Brand, Car Model, Part Name of product using GPT
     gpt_value = get_brand_model_part_name_using_openai(title=title)
     print(gpt_value)    
@@ -165,9 +183,9 @@ async def scraping(url):
     info_product['Car Years range'] = car_years
     info_product['Replacement on vehicle'] = replacement_on_vehicle
     info_product['Type'] = type
-    info_product['Manufacturer Part Number'] = OEM_part_number
+    info_product['OEM Part Number'] = OEM_part_number
     info_product['Manufacturer Part Number'] = Manufacturer_part_number
-    info_product['Manufacturer Part Number'] = Interchange_part_number
+    info_product['Interchange Part Number'] = Interchange_part_number
     info_product['Brand'] = "OEM PART"
     info_product['Stock'] = 'In stock'
     info_product['extra'] = product_info
@@ -178,7 +196,8 @@ async def scraping(url):
 # Run the main function
 
 async def main(list_name):
-    urls = load_xlsx(list_name)
+    # urls = load_xlsx(list_name)
+    urls = ['https://www.ebay.com/itm/335070026406?hash=item4e03badaa6:g:T54AAOSwEmRlKWEB&amdata=enc%3AAQAIAAAA4LynhxKEBMivr9eMFgmkYmpBbMwY45QFs5W362V2Af3DTy5xybybuXWm%2BTR9ZHpwkJcYYlalvLTfabMCEFkhzSKohRpQt3fjvWcfn6J%2FrDziRlPWjdLEu%2BrLdWNlikCeoFGafxyxtZwFiEnYFaF9OEALiEMDiHdlxgmj4s5cdYooGcnazCcGXThdmOTIJXtSMJg64z4BPkYsPaER2V0LTs3QoCFidOiHOr7GSD9%2FEFJumNTFADSX1PPnPvU%2BT%2Be%2FHm3LxpDdLqG7Dd5KJpvLYYDLi0Q1130DcDtgtMhZOl0t%7Ctkp%3ABk9SR5j7ppWfYw']
     products = []
     for i in urls:
         try:

@@ -1,2 +1,4 @@
-data.json
+pictures
+*.json
 log.txt
+*.xlsx
