@@ -1,4 +1,5 @@
 pictures
-*.json
+data.json
 log.txt
 *.xlsx
+.env
