@@ -12,6 +12,7 @@ ADMIN_API_ACCESS_TOKEN = os.getenv('ADMIN_API_ACCESS_TOKEN')
 NEW_CHECKED_PRODUCT = os.getenv('NEW_CHECKED_PRODUCT')
 DUPLICATION_NEW_PRODCUT = os.getenv('DUPLICATION_NEW_PRODCUT')
 DUPLICATION_EXIST_PRODUCT = os.getenv('DUPLICATION_EXIST_PRODUCT')
+SCRAP_PRODUCTS = os.get("SCRAP_PRODUCTS")
 
 headers = {
     'Content-Type': 'application/json',
@@ -135,12 +136,11 @@ def find_duplication_product(product_exist, product_new):
 
 if __name__ == "__main__":
     print("Extracting exist porducts from shopify ...")
-    # products = get_all_resources(shopify.Product.find())
-
-    with open("product1.json") as f:
-        products = json.load(f)
+    products = get_all_resources(shopify.Product.find())
+    # with open("product1.json") as f:
+    #     products = json.load(f)
     print("Loading new porducts from json ...")
-    new_products = get_new_products('data.json')
+    new_products = get_new_products(SCRAP_PRODUCTS)
     print("Checking the duplication products")
     duplication_products, duplication_new, new_upload_product = find_duplication_product(product_exist=products, product_new=new_products)
     print("---------------------------------------")

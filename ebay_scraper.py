@@ -12,7 +12,7 @@ load_dotenv(dotenv_path='.env')
 
 openai_key = os.getenv('OPNEAI_KEY')
 file_name = os.getenv('XLSX_FILE')
-
+SCRAP_PRODUCTS = os.get("SCRAP_PRODUCTS")
 openai.api_key = openai_key
 
 def load_xlsx(xlsx_file):
@@ -225,7 +225,7 @@ async def main(list_name):
                 f.write(f'{i}\n{e}\n\n')
             print(e)
             pass
-    with open('data.json', 'w') as f:
+    with open(SCRAP_PRODUCTS, 'w') as f:
         json.dump(products, f)
 
 if __name__ == "__main__":
