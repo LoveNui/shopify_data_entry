@@ -42,19 +42,22 @@ def download_image(url, file_name):
 def get_part_number(part_number_string):
     if part_number_string == "Does not apply" and part_number_string == 'N/A':
         return None
-    if " , " in part_number_string:
-        part_number = part_number_string.split(" , ")
+    elif " , " in part_number_string:
+        numbers = part_number_string.split(" , ")
     elif ", " in part_number_string:
-        part_number = part_number_string.split(", ")
+        numbers = part_number_string.split(", ")
     elif "," in part_number_string:
-        part_number = part_number_string.split(",")
+        numbers = part_number_string.split(",")
     elif " / " in part_number_string:
-        part_number = part_number_string.split(" / ")
+        numbers = part_number_string.split(" / ")
     elif "/ " in part_number_string:
-        part_number = part_number_string.split("/ ")
+        numbers = part_number_string.split("/ ")
     elif "/" in part_number_string:
-        part_number = part_number_string.split("/")
-    return part_number
+        numbers = part_number_string.split("/")
+    else:
+        numbers = [part_number_string]
+
+    return numbers
 
 def get_years_from_title(title):
     years = []
@@ -88,6 +91,18 @@ def get_years_from_title(title):
     
     return car_years
 
+def get_price(price_text):
+    price_m = float(re.findall(r'\d+\.\d+', price_text)[0])
+    price_unit = price_text.split(" ")[0]
+    if price_unit == "US":
+        price_m = round(price_m*3.7, 2)
+        return price_m
+    elif price_unit == "GBP":
+        price_m = round(price_m*4.66, 2)
+        return price_m
+    else:
+        return price_m
+
 async def fetch(url):
     # Create HTTP session
     async with aiohttp.ClientSession() as session:
@@ -107,6 +122,8 @@ async def scraping(url):
     title = soup.select('h1.x-item-title__mainTitle span')[0].text
     print("Title: ", title)
 
+    price = get_price(soup.select('div.vim.x-price-section.mar-t-20 div.x-price-primary span')[0].text)
+    
     # image download
     images = soup.select('div.ux-image-carousel.img-transition-medium img')
     image_urls=[]
@@ -162,7 +179,7 @@ async def scraping(url):
     # Part Number and OEM Part Number
     OEM_part_number = get_part_number(product_info.pop("OE/OEM Part Number")) if "OE/OEM Part Number" in product_info else None
     if OEM_part_number:
-        part_number = OEM_part_number[0]
+        part_number = [OEM_part_number[0]]
     else:
         part_number = None
     # Manufacturer Part Number
@@ -175,6 +192,7 @@ async def scraping(url):
     info_product = {}
     info_product['title'] = title
     info_product['url'] = url
+    info_product['price'] = price
     info_product['Part Name'] = part_name
     info_product['Part Number'] = part_number
     info_product['Condition (New\\Used)'] = condition
