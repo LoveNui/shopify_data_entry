@@ -12,7 +12,7 @@ ADMIN_API_ACCESS_TOKEN = os.getenv('ADMIN_API_ACCESS_TOKEN')
 NEW_CHECKED_PRODUCT = os.getenv('NEW_CHECKED_PRODUCT')
 DUPLICATION_NEW_PRODCUT = os.getenv('DUPLICATION_NEW_PRODCUT')
 DUPLICATION_EXIST_PRODUCT = os.getenv('DUPLICATION_EXIST_PRODUCT')
-SCRAP_PRODUCTS = os.get("SCRAP_PRODUCTS")
+SCRAP_PRODUCTS = os.getenv("SCRAP_PRODUCTS")
 
 headers = {
     'Content-Type': 'application/json',
@@ -45,6 +45,8 @@ def get_data_of_products(prod):
         metafield = i.to_dict()
         if metafield["key"] == "part_number":
             metafields_value[metafield['key']] = format_exist_product_part_number(metafield["value"])
+        elif metafield["key"] == "oem_part_no_":
+            metafields_value[metafield['key']] = get_part_number(metafield["value"])
         else:
             metafields_value[metafield['key']] = metafield["value"]
     product["metafields"] = metafields_value
@@ -82,11 +84,13 @@ def get_part_number(part_number_string):
         numbers = part_number_string.split("/")
     else:
         numbers = [part_number_string]
-    return numbers
+    
+    return_numbers =[i.strip() for i in numbers]
+    return return_numbers
 
 def format_exist_product_part_number(part_number):
     k = re.findall(r'\[\"(.*?)\"\]', part_number)[0]
-    numbers =[i.strip() for i in get_part_number(k)]
+    numbers =get_part_number(k)
     return numbers
 
 # Load new products for uploading
@@ -100,15 +104,23 @@ def find_duplication_product(product_exist, product_new):
     duplication_products = {}
     duplication_new = []
     for i, exist_product in enumerate(product_exist):
+        numbers = []
         if exist_product["metafields"].get("part_number"):
-            for y in exist_product["metafields"].get("part_number"):
-                if y in part_numbers.keys():
-                    try:
-                        duplication_products[y] = duplication_products[y].append((i, exist_product["id"], exist_product["title"], exist_product["title"]))
-                    except:
-                        duplication_products[y] = [(part_numbers[y], product_exist[part_numbers[y]]["id"], product_exist[part_numbers[y]]["title"]),(i, exist_product["id"], exist_product["title"])]
-                else:
-                    part_numbers[y] = i
+            numbers.extend(exist_product["metafields"].get("part_number"))
+        if exist_product["metafields"].get("oem_part_no_"):
+            numbers.extend(exist_product["metafields"].get("oem_part_no_"))
+        numbers = list(set(numbers))
+        for y in numbers:
+            if y in part_numbers.keys():
+                try:
+                    duplication_products[y] = duplication_products[y].append((i, exist_product["id"], exist_product["title"], exist_product["title"]))
+                    break
+                except:
+                    duplication_products[y] = [(part_numbers[y], product_exist[part_numbers[y]]["id"], product_exist[part_numbers[y]]["title"]),(i, exist_product["id"], exist_product["title"])]
+                    break
+            else:
+                part_numbers[y] = i
+
     new_upload_product = []
     for i, new_product in enumerate(product_new):
         if new_product["Part Number"]:
@@ -137,8 +149,8 @@ def find_duplication_product(product_exist, product_new):
 if __name__ == "__main__":
     print("Extracting exist porducts from shopify ...")
     products = get_all_resources(shopify.Product.find())
-    # with open("product1.json") as f:
-    #     products = json.load(f)
+    with open("project1.json", "w") as f:
+        json.dump(products, f)
     print("Loading new porducts from json ...")
     new_products = get_new_products(SCRAP_PRODUCTS)
     print("Checking the duplication products")

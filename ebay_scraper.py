@@ -12,7 +12,7 @@ load_dotenv(dotenv_path='.env')
 
 openai_key = os.getenv('OPNEAI_KEY')
 file_name = os.getenv('XLSX_FILE')
-SCRAP_PRODUCTS = os.get("SCRAP_PRODUCTS")
+SCRAP_PRODUCTS = os.getenv("SCRAP_PRODUCTS")
 openai.api_key = openai_key
 
 def load_xlsx(xlsx_file):

@@ -4,3 +4,4 @@ log.txt
 *.xlsx
 *.env
 *.json
+*.csv
