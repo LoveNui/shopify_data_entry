@@ -76,6 +76,19 @@ Find duplicate products between Shopify and new products, and within Shopify
 
         `python shopify_delete_products.py`
 
+### 4. Make EasySearch Engine Database for searching products
+
+#### Dialogflow
+![enter image description here](./diagram/easyserach.jpg)
+#### Usage
+1) Run
+
+        `python easysearch.py`
+
+2) Import Database on Shopify
+
+![enter image description here](./diagram/easysearch.png)
+
 ### 3. AI Generator for candidates list
 
 'AI Generator' Components is to find candidate products on eBay based on administrator descriptions and generate a list of candidate products.
