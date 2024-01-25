@@ -40,7 +40,7 @@ def download_image(url, file_name):
         print("Failed to download image")
 
 def get_part_number(part_number_string):
-    if part_number_string == "Does not apply" and part_number_string == 'N/A':
+    if part_number_string.strip().lower() == "Does not apply" or part_number_string.strip().lower() == 'N/A' or part_number_string.strip().lower() == 'N / A':
         return None
     elif " , " in part_number_string:
         numbers = part_number_string.split(" , ")
@@ -56,8 +56,9 @@ def get_part_number(part_number_string):
         numbers = part_number_string.split("/")
     else:
         numbers = [part_number_string]
-
-    return numbers
+    
+    return_numbers =[i.strip() for i in numbers]
+    return return_numbers
 
 def get_years_from_title(title):
     years = []
@@ -178,15 +179,20 @@ async def scraping(url):
     
     # Part Number and OEM Part Number
     OEM_part_number = get_part_number(product_info.pop("OE/OEM Part Number")) if "OE/OEM Part Number" in product_info else None
-    if OEM_part_number:
-        part_number = [OEM_part_number[0]]
-    else:
-        part_number = None
     # Manufacturer Part Number
     Manufacturer_part_number = get_part_number(product_info.pop("Manufacturer Part Number")) if "Manufacturer Part Number" in product_info else None
-
     # Interchange Part Number
     Interchange_part_number = get_part_number(product_info.pop("Interchange Part Number")) if "Interchange Part Number" in product_info else ( get_part_number(product_info.pop("Interchange")) if "Interchange" in product_info else None)
+    
+    # Part Number 
+    if OEM_part_number:
+        part_number = [OEM_part_number[0]]
+    elif Manufacturer_part_number:
+        part_number = [Manufacturer_part_number[0]]
+    elif Interchange_part_number:
+        part_number = [Interchange_part_number[0]]
+    else:
+        part_number = None
     
     # Totals
     info_product = {}
@@ -226,7 +232,7 @@ async def main(list_name):
             print(e)
             pass
     with open(SCRAP_PRODUCTS, 'w') as f:
-        json.dump(products, f)
+        json.dump(products, f, indent=2)
 
 if __name__ == "__main__":
     
