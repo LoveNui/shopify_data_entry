@@ -273,7 +273,7 @@ if __name__ == "__main__":
         json.dump(admin_list, f, indent=2)
     print("---------------------------------------")
     print("Duplication on New Products: ", len(duplication_new))
-    with open(DUPLICATION_NEW_PRODCUT, "w", encoding="utf-8") as f:
+    with open(DUPLICATION_NEW_PRODCUT, "wt", encoding="utf-8") as f:
         w = csv.writer(f)
         for i in duplication_new:
             w.writerow(i)
