@@ -34,6 +34,13 @@ def upload_new_products(new_products):
         variant.weight = product["weight"] if "weight" in product else 0
         variant.weight_unit = "kg"
 
+        inventoryItem = shopify.InventoryItem()
+        #inventoryItem = variant.inventory_item
+        inventoryItem.tracked = True
+        variant.inventory_quantity = 1
+        inventoryItem.inventory_quantity = 1
+        variant.inventory_item = inventoryItem
+        
         new_product.variants = [variant]
         # Get the list of all pictures
         dir_list = os.listdir(os.path.join('pictures', product["title"]))
@@ -99,10 +106,17 @@ def upload_new_products(new_products):
                 product_metafields.append(metafield)
 
         new_product.save()
-        print("[Info]successfully added project")
+        print("[Info] successfully added project")
         for i in product_metafields:
             new_product.add_metafield(i)
         print("[Info] successfully added metafields")
+        inventoryitem = shopify.InventoryItem.find(new_product.variants[0].inventory_item_id)
+        inventoryitem.tracked = True
+        inventoryitem.save()
+        print(new_product.variants[0].inventory_item_id)
+        inventory = shopify.InventoryLevel.find_first(inventory_item_ids=new_product.variants[0].inventory_item_id).to_dict()
+        shopify.InventoryLevel.set(inventory_item_id=inventory["inventory_item_id"], location_id=inventory["location_id"], available=1)
+        print("[Info] successfully set inventory items")
         time.sleep(1)
         print("------------------ completed adding this product ------------------")
     print("------------------ completed adding all products ------------------")
@@ -110,5 +124,4 @@ def upload_new_products(new_products):
 if __name__ == "__main__":
     with open(NEW_CHECKED_PRODUCT) as f:
         new_upload_product = json.load(f)
-    print(new_upload_product)
     upload_new_products(new_upload_product)
