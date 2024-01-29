@@ -16,12 +16,13 @@ This project has 4 main components.
 #### Usage
 1)  Install Python and Python libraries
 
-        pip install -r requirements.txt
+        python -m pip install -r requirements.txt
 
 2)  Set env file
 
         openai = sk-****************************************
         xlsx_file = List.xlsx
+        REMOVE_API = ******************
         SCRAP_PRODUCTS = scraping_products.json  # products which are scraped from ebay site
 
 3)  Run
@@ -41,7 +42,7 @@ Find duplicate products between Shopify and new products, and within Shopify
 #### Usage
 1) Install Python and Python libraries
 
-        pip install -r requirements.txt
+        python -m pip install -r requirements.txt
 
 2) Add env file
 
