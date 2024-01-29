@@ -128,9 +128,9 @@ def download_image(url, file_name):
     }
     files = {
         'image_url': ('', url),
-        'crop': ('', '0'),
-        'ecom': ('', '0'),
-        'get_base64': ('', '0'),
+        'crop': ('', '1'),
+        'ecom': ('', '1'),
+        'get_base64': ('', '1'),
     }
     url_picture = requests.post(url_remove, headers=headers, files=files).json()["url"]
     response = requests.get(url_picture)
@@ -236,7 +236,7 @@ async def scraping(url):
             try:
                 urls = re.findall(r'(https?://\S+)', image['data-srcset'])
                 if not urls[-1] in image_urls:
-                    download_image(url=urls[-1], file_name=f"{title}/{str(len(image_urls)+1)}.jpg")
+                    download_image(url=urls[-1], file_name=f"{title}/{str(len(image_urls)+1)}.png")
                     image_urls.append(urls[-1])
             except:
                 try:
