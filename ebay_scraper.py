@@ -121,19 +121,19 @@ The answer must not include car brand and car name."""
     return openai_answer
 
 def download_image(url, file_name):
-    url_remove = 'https://api.removal.ai/3.0/remove'
-    headers = {
-        'accept': 'application/json',
-        'Rm-Token': remove_api,
-    }
-    files = {
-        'image_url': ('', url),
-        'crop': ('', '1'),
-        'ecom': ('', '1'),
-        'get_base64': ('', '1'),
-    }
-    url_picture = requests.post(url_remove, headers=headers, files=files).json()["url"]
-    response = requests.get(url_picture)
+    # url_remove = 'https://api.removal.ai/3.0/remove'
+    # headers = {
+    #     'accept': 'application/json',
+    #     'Rm-Token': remove_api,
+    # }
+    # files = {
+    #     'image_url': ('', url),
+    #     'crop': ('', '1'),
+    #     'ecom': ('', '1'),
+    #     'get_base64': ('', '1'),
+    # }
+    # url_picture = requests.post(url_remove, headers=headers, files=files).json()["url"]
+    response = requests.get(url=url)
     if response.status_code == 200:
         with open(file_name, 'wb') as file:
             file.write(response.content)
