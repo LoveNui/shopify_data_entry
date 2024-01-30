@@ -44,7 +44,7 @@ Find duplicate products between Shopify and new products, and within Shopify
 
         python -m pip install -r requirements.txt
 
-2) Add env file
+2) Add new line into .env file
 
         SHOP_NAME = myshopify
         ADMIN_API_ACCESS_TOKEN = shpat_*******************************
@@ -89,6 +89,21 @@ Find duplicate products between Shopify and new products, and within Shopify
 2) Import Database on Shopify
 
 ![enter image description here](./diagram/easysearch.png)
+
+### 5. Remove Background of images in special products list
+
+#### Usage
+1) Install Python and Python libraries
+
+        python -m pip install -r requirements.txt
+
+2) Add new line into .env file
+
+        REMOVE_BACKGROUND_PICTURES_PRODUCTS = update_pictures_products.txt
+
+3) Run
+
+        python picture_processing.py
 
 ### 3. AI Generator for candidates list
 
