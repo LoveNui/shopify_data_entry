@@ -108,7 +108,7 @@ def make_brand_model_set(brand, model):
             car_b = brands[0].replace("-", " ")
         models = model.split(",")
         for i in models:
-            keys.append(f'{car_b.upper()},{i.strip().split(" ")[0]}')
+            keys.append(f'{car_b.upper()},{i.strip().split(" ")[0].upper()}')
     else:
         models = model.split(",")
         for i in models:
@@ -118,7 +118,7 @@ def make_brand_model_set(brand, model):
             else:
                 car_b = car_brand.replace("-", " ")
             mk = i.replace(f'({car_brand})', "")
-            keys.append(f'{car_b.upper()},{mk.strip().split(" ")[0]}')
+            keys.append(f'{car_b.upper()},{mk.strip().split(" ")[0].upper()}')
     return keys
 
 
@@ -150,11 +150,11 @@ def output_database(database_file_path, database):
 
 if __name__ == "__main__":
     print("Extracting exist porducts from shopify ...")
-    # products = get_all_resources(shopify.Product.find())
-    # with open("project_database.json", "w") as f:
-    #     json.dump(products, f, indent=2)
-    with open("project_database.json") as f:
-        products = json.load(f)
+    products = get_all_resources(shopify.Product.find())
+    # # with open("project_database.json", "w") as f:
+    # #     json.dump(products, f, indent=2)
+    # with open("project_database.json") as f:
+    #     products = json.load(f)
     database = make_database_for_easysearch(products=products)
     with open("database.json", "w") as f:
         json.dump(database, f, indent=2)
