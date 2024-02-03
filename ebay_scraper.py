@@ -214,6 +214,18 @@ async def fetch(url):
             # Return text content
             return await response.text()
 
+def make_folder_name(title):
+    t1 = title.replace("\\","")
+    t2 = t1.replace("/","")
+    t3 = t2.replace("*","")
+    t4 = t3.replace("<","")
+    t5 = t4.replace(">","")
+    t6 = t5.replace("\"","")
+    t7 = t6.replace("|","")
+    t8 = t7.replace(":","")
+    t9 = t8.replace("?","")
+    return t9.strip()
+
 async def scraping(url):
     print("--------------------------------------------------------------------")
     print("Url: ", url)
@@ -230,18 +242,19 @@ async def scraping(url):
     # image download
     images = soup.select('div.ux-image-carousel.img-transition-medium img')
     image_urls=[]
-    os.makedirs(f'pictures/{title}', exist_ok=True)
+    picture_folder = make_folder_name(title=title)
+    os.makedirs(f'pictures/{picture_folder}', exist_ok=True)
     for image in images:
         if not 'Video' in image['alt']:
             try:
                 urls = re.findall(r'(https?://\S+)', image['data-srcset'])
                 if not urls[-1] in image_urls:
-                    download_image(url=urls[-1], file_name=f"{title}/{str(len(image_urls)+1)}.png")
+                    download_image(url=urls[-1], file_name=f"pictures/{picture_folder}/{str(len(image_urls)+1)}.jpg")
                     image_urls.append(urls[-1])
             except:
                 try:
                     if not image['data-zoom-src'] in image_urls:
-                        download_image(url=image['data-zoom-src'], file_name=f"pictures/{title}/{str(len(image_urls)+1)}.jpg")
+                        download_image(url=image['data-zoom-src'], file_name=f"pictures/{picture_folder}/{str(len(image_urls)+1)}.jpg")
                         image_urls.append(image['data-zoom-src'])
                 except:
                     pass
@@ -297,6 +310,7 @@ async def scraping(url):
     # Totals
     info_product = {}
     info_product['title'] = title
+    info_product['picture_folder'] = picture_folder
     info_product['url'] = url
     info_product['price'] = price
     info_product['Part Name'] = part_name
@@ -327,7 +341,7 @@ async def main(list_name):
             info = await scraping(url=i)
             products.append(info)
         except Exception as e:
-            with open('log.txt', 'a+') as f:
+            with open('log.txt', 'a+', encoding='utf-8') as f:
                 f.write(f'{i}\n{e}\n\n')
             print(e)
             pass

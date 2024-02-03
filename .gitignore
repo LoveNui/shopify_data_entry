@@ -5,3 +5,4 @@ log.txt
 *.env
 *.json
 *.csv
+search.config

@@ -8,3 +8,5 @@ python-dotenv
 shopifyapi
 
 pillow
+
+selenium
