@@ -48,13 +48,13 @@ def get_check_candidat_products(candidate_products, collection, car_maker, car_m
         year = check_years_from_title(title=title, require_year=car_year)
         pro = compare_collection_title(title=title, collection=collection)
         print(pro)
-        if maker and pro > 0.3:
+        if maker and pro > 0.9:
             collectin_check = get_part_name_using_openai(title=title, collection=collection, car_maker=car_maker, car_model=car_model)
             print(f'Possibility: {"Yes" if collectin_check else "No"}')
             print(f'-------------------------------------------------')
             if collectin_check:
                 products.append(item)
-            products.append(item)
+            # products.append(item)
         else:
             print(f'Possibility: No')
             print(f'-------------------------------------------------')

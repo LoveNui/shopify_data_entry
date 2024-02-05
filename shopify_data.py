@@ -107,22 +107,23 @@ def find_duplication_product(product_exist, product_new):
     duplication_products = {}
     duplication_new = []
     for i, exist_product in enumerate(product_exist):
-        numbers = []
-        if exist_product["metafields"].get("part_number"):
-            numbers.extend(exist_product["metafields"].get("part_number"))
-        if exist_product["metafields"].get("oem_part_no_"):
-            numbers.extend(exist_product["metafields"].get("oem_part_no_"))
-        numbers = list(set(numbers))
-        for y in numbers:
-            if y in part_numbers.keys():
-                try:
-                    duplication_products[y] = duplication_products[y].append((i, exist_product["id"], exist_product["title"], exist_product["title"]))
-                    break
-                except:
-                    duplication_products[y] = [(part_numbers[y], product_exist[part_numbers[y]]["id"], product_exist[part_numbers[y]]["title"]),(i, exist_product["id"], exist_product["title"])]
-                    break
-            else:
-                part_numbers[y] = i
+        if exist_product:
+            numbers = []
+            if exist_product["metafields"].get("part_number"):
+                numbers.extend(exist_product["metafields"].get("part_number"))
+            if exist_product["metafields"].get("oem_part_no_"):
+                numbers.extend(exist_product["metafields"].get("oem_part_no_"))
+            numbers = list(set(numbers))
+            for y in numbers:
+                if y in part_numbers.keys():
+                    try:
+                        duplication_products[y] = duplication_products[y].append((i, exist_product["id"], exist_product["title"], exist_product["title"]))
+                        break
+                    except:
+                        duplication_products[y] = [(part_numbers[y], product_exist[part_numbers[y]]["id"], product_exist[part_numbers[y]]["title"]),(i, exist_product["id"], exist_product["title"])]
+                        break
+                else:
+                    part_numbers[y] = i
 
     new_upload_product = []
     for i, new_product in enumerate(product_new):
@@ -251,11 +252,11 @@ def check_duplication_products_for_delete(duplication_products, exist_products):
 
 if __name__ == "__main__":
     print("Extracting exist porducts from shopify ...")
-    products = get_all_resources(shopify.Product.find())
+    # products = get_all_resources(shopify.Product.find())
     # with open("project1.json", "w") as f:
     #     json.dump(products, f, indent=2)
-    # with open("project1.json") as f:
-    #     products = json.load(f)
+    with open("project1.json") as f:
+        products = json.load(f)
     print("Loading new porducts from json ...")
     new_products = get_new_products(SCRAP_PRODUCTS)
     print("Checking the duplication products")
