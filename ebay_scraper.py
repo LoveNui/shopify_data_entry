@@ -236,9 +236,52 @@ async def scraping(url):
     # GET Title of product
     title = soup.select('h1.x-item-title__mainTitle span')[0].text
     print("Title: ", title)
-
     price = get_price(soup.select('div.vim.x-price-section.mar-t-20 div.x-price-primary span')[0].text)
+    # Extract deatiled infos
+    info  = soup.select("div#viTabs_0_is.vim.x-about-this-item div.ux-layout-section-module-evo div.ux-layout-section-evo.ux-layout-section--features")
+    product_info = {}
+    for i in info:
+        details = i.select("div.ux-layout-section-evo__col")
+        for y in details:
+            label = y.select("div.ux-labels-values__labels-content span")
+            value = y.select("div.ux-labels-values__values-content span")
+            if len(label):
+                product_info[label[0].text] = value[0].text
+    print(product_info)
+    # Part Number and OEM Part Number
+    OEM_part_number = get_part_number(product_info.pop("OE/OEM Part Number")) if "OE/OEM Part Number" in product_info else None
+    # Manufacturer Part Number
+    Manufacturer_part_number = get_part_number(product_info.pop("Manufacturer Part Number")) if "Manufacturer Part Number" in product_info else None
+    # Interchange Part Number
+    Interchange_part_number = get_part_number(product_info.pop("Interchange Part Number")) if "Interchange Part Number" in product_info else ( get_part_number(product_info.pop("Interchange")) if "Interchange" in product_info else None)
     
+    # Part Number 
+    if OEM_part_number:
+        part_number = [OEM_part_number[0]]
+    elif Manufacturer_part_number:
+        part_number = [Manufacturer_part_number[0]]
+    elif Interchange_part_number:
+        part_number = [Interchange_part_number[0]]
+    else:
+        part_number = None
+
+    if part_number == None:
+        raise Exception('Sorry, part_number is None')
+    
+    # Get Car Brand, Car Model, Part Name of product using GPT
+    answer = get_brand_model_part_name_using_openai(title=title)
+    car_brand, car_model = make_string_value(prepar_brand_model(answers=answer))
+    part_name = get_part_name_using_openai(title=title)
+    print(car_brand, car_model, part_name)
+    # Get condition
+    condition_string = product_info.pop("Condition") if "Condition" in product_info else None
+    if condition_string:
+        condition = "Used" if condition_string.lower().startswith('used') else ("New" if condition_string.lower().startswith('new') else None)
+    # Replacement On Vehicle
+    replacement_on_vehicle = product_info.pop("Placement on Vehicle") if "Placement on Vehicle" in product_info else None
+
+    # Type
+    type = product_info.pop("Type") if "Type" in product_info else None
     # image download
     images = soup.select('div.ux-image-carousel.img-transition-medium img')
     image_urls=[]
@@ -262,50 +305,7 @@ async def scraping(url):
     # Extract years of products
 
     car_years = get_years_from_title(title=title)
-    
-    # Extract deatiled infos
-    info  = soup.select("div#viTabs_0_is.vim.x-about-this-item div.ux-layout-section-module-evo div.ux-layout-section-evo.ux-layout-section--features")
-    product_info = {}
-    for i in info:
-        details = i.select("div.ux-layout-section-evo__col")
-        for y in details:
-            label = y.select("div.ux-labels-values__labels-content span")
-            value = y.select("div.ux-labels-values__values-content span")
-            if len(label):
-                product_info[label[0].text] = value[0].text
-    print(product_info)
-    # Get Car Brand, Car Model, Part Name of product using GPT
-    answer = get_brand_model_part_name_using_openai(title=title)
-    car_brand, car_model = make_string_value(prepar_brand_model(answers=answer))
-    part_name = get_part_name_using_openai(title=title)
-    print(car_brand, car_model, part_name)
-    # Get condition
-    condition_string = product_info.pop("Condition") if "Condition" in product_info else None
-    if condition_string:
-        condition = "Used" if condition_string.lower().startswith('used') else ("New" if condition_string.lower().startswith('new') else None)
-    
-    # Replacement On Vehicle
-    replacement_on_vehicle = product_info.pop("Placement on Vehicle") if "Placement on Vehicle" in product_info else None
 
-    # Type
-    type = product_info.pop("Type") if "Type" in product_info else None
-    
-    # Part Number and OEM Part Number
-    OEM_part_number = get_part_number(product_info.pop("OE/OEM Part Number")) if "OE/OEM Part Number" in product_info else None
-    # Manufacturer Part Number
-    Manufacturer_part_number = get_part_number(product_info.pop("Manufacturer Part Number")) if "Manufacturer Part Number" in product_info else None
-    # Interchange Part Number
-    Interchange_part_number = get_part_number(product_info.pop("Interchange Part Number")) if "Interchange Part Number" in product_info else ( get_part_number(product_info.pop("Interchange")) if "Interchange" in product_info else None)
-    
-    # Part Number 
-    if OEM_part_number:
-        part_number = [OEM_part_number[0]]
-    elif Manufacturer_part_number:
-        part_number = [Manufacturer_part_number[0]]
-    elif Interchange_part_number:
-        part_number = [Interchange_part_number[0]]
-    else:
-        part_number = None
     
     # Totals
     info_product = {}

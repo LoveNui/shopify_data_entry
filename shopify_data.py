@@ -1,14 +1,13 @@
 import requests
-import re
-import os, json, csv
+import json
+import os, re, csv
 from dotenv import load_dotenv
-import shopify
-import time
 
 load_dotenv(dotenv_path='.env')
 
 SHOP_NAME = os.getenv('SHOP_NAME')
 ADMIN_API_ACCESS_TOKEN = os.getenv('ADMIN_API_ACCESS_TOKEN')
+
 NEW_CHECKED_PRODUCT = os.getenv('NEW_CHECKED_PRODUCT')
 DUPLICATION_NEW_PRODCUT = os.getenv('DUPLICATION_NEW_PRODCUT')
 ADMIN_HANDLE_PRODUCT_LIST = os.getenv('ADMIN_HANDLE_PRODUCT_LIST')
@@ -20,54 +19,54 @@ headers = {
     'X-Shopify-Access-Token': ADMIN_API_ACCESS_TOKEN
 }
 
-session = shopify.Session(
-            f'{SHOP_NAME}.myshopify.com',
-            "2023-04",
-            ADMIN_API_ACCESS_TOKEN
-        )
+url = f'https://{SHOP_NAME}.myshopify.com/admin/api/2024-01/graphql.json'
 
-shopify.ShopifyResource.activate_session(session)
+# Function to get all products with pagination
+def get_all_products():
+    all_products = []
+    end_cursor = None
+    has_next_page = True
 
-# Get datailed product's data
-def get_data_of_products(prod):
-    prod_dict = prod.to_dict()
-    main_keys = ["id", "title", "body_html", "vendor", "product_type", "published_scope", "tags", "status", "options"]
-    product = dict((y, prod_dict[y]) for y in main_keys)
-    
-    variant_keys = ["id", "title","price","sku", "grams","weight","weight_unit"]
-    product["variants"] = [dict((y, i[y]) for y in variant_keys) for i in prod_dict["variants"]]
+    while has_next_page:
+        # GraphQL query with pagination
+        query = """
+        {
+            products(first: 250%s) {
+                edges {
+                    cursor
+                    node {
+                        id
+                        title
+                        handle
+                        vendor
+                        metafields(first: 250) {
+                            edges {
+                                node {
+                                    key
+                                    value
+                                }
+                            }
+                        }
+                    }
+                }
+                pageInfo {
+                    hasNextPage
+                }
+            }
+        }
+        """ % (", after: \"%s\"" % end_cursor if end_cursor else "")
 
-    metafields = prod.metafields()
-    if metafields is None or len(metafields) == 0:
-        return None
-    
-    metafields_value = {}
-    for i in metafields:
-        metafield = i.to_dict()
-        if metafield["key"] == "part_number":
-            metafields_value[metafield['key']] = format_exist_product_part_number(metafield["value"])
-        elif metafield["key"] == "oem_part_no_":
-            metafields_value[metafield['key']] = get_part_number(metafield["value"])
-        elif metafield["key"] == "year_" :
-            metafields_value[metafield['key']] = [int(i) for i in re.findall(r'\b\d{4}\b|\b\d{2}\b', metafield["value"])]
-        else:
-            metafields_value[metafield['key']] = metafield["value"]
-    product["metafields"] = metafields_value
-    return product
+        response = requests.post(url=url, headers=headers, json={'query': query})
+        response_json = response.json()
 
-# Get all products form shopify
-def get_all_resources(resource):
-    resources = []
-    if resource.has_next_page():
-        new_page = resource.next_page()
-        resources.extend(get_all_resources(new_page))
-    for i, prod in enumerate(resource):
-        if i%4 == 0:
-            time.sleep(1)
-        resources.append(get_data_of_products(prod))
-    print(len(resources))
-    time.sleep(3)
-    return resources
+        edges = response_json['data']['products']['edges']
+        all_products.extend(edge['node'] for edge in edges)
+        has_next_page = response_json['data']['products']['pageInfo']['hasNextPage']
+
+        if edges:
+            end_cursor = edges[-1]['cursor']
+
+    return all_products
 
 # Clean part_number of products
 def get_part_number(part_number_string):
@@ -109,21 +108,37 @@ def find_duplication_product(product_exist, product_new):
     for i, exist_product in enumerate(product_exist):
         if exist_product:
             numbers = []
-            if exist_product["metafields"].get("part_number"):
-                numbers.extend(exist_product["metafields"].get("part_number"))
-            if exist_product["metafields"].get("oem_part_no_"):
-                numbers.extend(exist_product["metafields"].get("oem_part_no_"))
+            metafield = {}
+            for k in exist_product["metafields"]["edges"]:
+                if k["node"]["key"] == "part_number":
+                    mk = format_exist_product_part_number(k["node"]["value"])
+                    metafield[k["node"]["key"]] = mk
+                    if mk:
+                        numbers.extend(mk)
+                elif k["node"]["key"] == "oem_part_no_":
+                    mk = get_part_number(k["node"]["value"])
+                    metafield[k["node"]["key"]] = mk
+                    if mk:
+                        numbers.extend(mk)
+                else:
+                    metafield[k["node"]["key"]] = k["node"]["value"]
+            save_product = {
+                "id": int(exist_product["id"].split("/")[-1]),
+                "title": exist_product["title"],
+                "handle": exist_product["handle"],
+                "metafields":metafield
+            }
             numbers = list(set(numbers))
             for y in numbers:
                 if y in part_numbers.keys():
                     try:
-                        duplication_products[y] = duplication_products[y].append((i, exist_product["id"], exist_product["title"], exist_product["title"]))
+                        duplication_products[y].append(save_product)
                         break
                     except:
-                        duplication_products[y] = [(part_numbers[y], product_exist[part_numbers[y]]["id"], product_exist[part_numbers[y]]["title"]),(i, exist_product["id"], exist_product["title"])]
+                        duplication_products[y] = [part_numbers[y], save_product]
                         break
                 else:
-                    part_numbers[y] = i
+                    part_numbers[y] = save_product
 
     new_upload_product = []
     for i, new_product in enumerate(product_new):
@@ -131,7 +146,7 @@ def find_duplication_product(product_exist, product_new):
         if new_product["Part Number"]:
             for y in new_product["Part Number"]:
                 if y in part_numbers:
-                    duplication_new.append([new_product["url"], product_exist[part_numbers[y]]["title"], product_exist[part_numbers[y]]["id"]])
+                    duplication_new.append([new_product["url"], part_numbers[y]["title"], part_numbers[y]["id"]])
                     flag = False
                     break
             if not flag:
@@ -139,7 +154,7 @@ def find_duplication_product(product_exist, product_new):
         if new_product["OEM Part Number"]:
             for y in new_product["OEM Part Number"]:
                 if y in part_numbers:
-                    duplication_new.append([new_product["url"], product_exist[part_numbers[y]]["title"], product_exist[part_numbers[y]]["id"]])
+                    duplication_new.append([new_product["url"], part_numbers[y]["title"], part_numbers[y]["id"]])
                     flag = False
                     break
             if not flag:
@@ -147,7 +162,7 @@ def find_duplication_product(product_exist, product_new):
         if new_product["Manufacturer Part Number"]:
             for y in new_product["Manufacturer Part Number"]:
                 if y in part_numbers:
-                    duplication_new.append([new_product["url"], product_exist[part_numbers[y]]["title"], product_exist[part_numbers[y]]["id"]])
+                    duplication_new.append([new_product["url"], part_numbers[y]["title"], part_numbers[y]["id"]])
                     flag = False
                     break
             if not flag:
@@ -155,7 +170,7 @@ def find_duplication_product(product_exist, product_new):
         if new_product["Interchange Part Number"]:
             for y in new_product["Interchange Part Number"]:
                 if y in part_numbers:
-                    duplication_new.append([new_product["url"], product_exist[part_numbers[y]]["title"], product_exist[part_numbers[y]]["id"]])
+                    duplication_new.append([new_product["url"], part_numbers[y]["title"], part_numbers[y]["id"]])
                     flag = False
                     break
             if not flag:
@@ -168,29 +183,23 @@ def find_duplication_product(product_exist, product_new):
 def check_same_products(product1, product2):
     mk = -1
     for key in product1.keys():
-        if key == "variants":
-            for k in product1[key]:
-                if not "id" in k:
-                    try:
-                        if product1[key][k] != product2[key][k]:
-                            return False, mk
-                    except:
-                        return False, mk
-        elif key == "metafields":
+        if key == "metafields":
             if len(product1[key].keys()) > len(product2[key].keys()):
                 return False, 1
             elif len(product1[key].keys()) < len(product2[key].keys()):
                 return False, 0
-        
-            for k in product1[key]:
-                try:
+            for k in product1[key].keys():
+                try:                        
                     if product1[key][k].strip() != product2[key][k].strip():
-                        return False, mk
+                        if k in ["part_name", "car_brand", "car_model", "year_"]:
+                            if product1["title"] != product2["title"]:
+                                return False, mk
+                        else:
+                            return False, mk
                 except:
                     if product1[key][k]!= product2[key][k]:
                         return False, mk
-                    return False, mk
-        elif not key in ["id", "body_html", "title", "tags", "published_scope", "tags", "status", "options"] :
+        elif not key in ["id", "body_html", "title", "tags", "published_scope", "tags", "status", "options", "handle"] :
             try:
                 if product1[key] != product2[key]:
                     return False, mk
@@ -198,10 +207,9 @@ def check_same_products(product1, product2):
                 return False, mk
         else:
             pass
-    
     return True, mk
 
-def check_duplication_products_for_delete(duplication_products, exist_products):
+def check_duplication_products_for_delete(duplication_products):
     remove_list = []
     admin_list = {}
     for key in duplication_products.keys():
@@ -209,8 +217,7 @@ def check_duplication_products_for_delete(duplication_products, exist_products):
         if products:
             same_product = []
             incorrect_prodcuts = []
-            for y in products:
-                product = exist_products[y[0]]
+            for product in products:
                 if product["metafields"].get("part_number") and product["metafields"].get("oem_part_no_"):
                     if set(product["metafields"].get("part_number")).issubset(set(product["metafields"].get("oem_part_no_"))):
                         same_product.append(product)
@@ -219,29 +226,51 @@ def check_duplication_products_for_delete(duplication_products, exist_products):
                 else:
                     incorrect_prodcuts.append(product)
             if incorrect_prodcuts == []:
-                flag = True
-                for i in range(0, len(same_product)-1):
-                    result, mk = check_same_products(same_product[i], same_product[i+1])
-                    if result == False:
-                        if mk != -1:
-                            remove_list.append(same_product[i + mk])
-                        else:
-                            admin_list[key] = [pro["title"] for pro in same_product]
-                            flag = False
+                ask_product = [same_product[0]]
+                for i in range(1, len(same_product)):
+                    new_ask_product = ask_product
+                    flag = True
+                    for base in ask_product:
+                        result, mk = check_same_products(base, same_product[i])
+                        if result == True:
+                            remove_list.append(same_product[i])
+                            flag = True
                             break
-                if flag:
-                    remove_list.extend(same_product[1::])
+                        elif mk == 1:
+                            remove_list.append(same_product[i])
+                            flag = True
+                            break
+                        elif mk == 0:
+                            remove_list.append(base)
+                            new_ask_product.remove(base)
+                            flag = False
+                        else:
+                            flag = False
+                    if flag == False:
+                        new_ask_product.append(same_product[i])
+                    ask_product = new_ask_product
+                if len(ask_product) == 1:
+                    pass
+                else:
+                    admin_list[key] = ask_product
             elif same_product == []:
                 flag = True
-                for i in range(0, len(incorrect_prodcuts)-1):
-                    result, mk = check_same_products(incorrect_prodcuts[i], incorrect_prodcuts[i+1])
+                base_prodcut = incorrect_prodcuts[0]
+                for i in range(1, len(incorrect_prodcuts)-1):
+                    result, mk = check_same_products(base_prodcut, incorrect_prodcuts[i])
                     if result == False:
                         if mk != -1:
-                            remove_list.append(incorrect_prodcuts[i + mk])
+                            if mk == 1:
+                                remove_list.append(incorrect_prodcuts[i])
+                            else:
+                                remove_list.append(base_prodcut)
+                                base_prodcut = incorrect_prodcuts[i]
                         else:
-                            admin_list[key] = [pro["title"] for pro in incorrect_prodcuts]
+                            admin_list[key] = [pro for pro in incorrect_prodcuts]
                             flag = False
                             break
+                    else:
+                        remove_list.append(incorrect_prodcuts[i])
                 if flag:
                     remove_list.extend(incorrect_prodcuts[1::])
             else:
@@ -252,11 +281,11 @@ def check_duplication_products_for_delete(duplication_products, exist_products):
 
 if __name__ == "__main__":
     print("Extracting exist porducts from shopify ...")
-    # products = get_all_resources(shopify.Product.find())
+    products = get_all_products()
     # with open("project1.json", "w") as f:
     #     json.dump(products, f, indent=2)
-    with open("project1.json") as f:
-        products = json.load(f)
+    # with open("project1.json") as f:
+    #     products = json.load(f)
     print("Loading new porducts from json ...")
     new_products = get_new_products(SCRAP_PRODUCTS)
     print("Checking the duplication products")
@@ -265,7 +294,7 @@ if __name__ == "__main__":
     print("Duplication Items on shopify: ", len(duplication_products))
     with open("duplication_products.json", "w") as f:
         json.dump(duplication_products, f, indent=2)
-    remove_list, admin_list = check_duplication_products_for_delete(duplication_products=duplication_products, exist_products=products)
+    remove_list, admin_list = check_duplication_products_for_delete(duplication_products=duplication_products)
     print("Remove Items on shopify: ", len(remove_list))
     print("Admin handling Items on shopify: ", len(admin_list))
     with open(REMOVE_PRODUCT_LIST, "w") as f:

@@ -54,10 +54,10 @@ def get_all_resources(resource):
         resources.extend(get_all_resources(new_page))
     for i, prod in enumerate(resource):
         if i%4 == 0:
-            time.sleep(1)
+            time.sleep(3)
         resources.append(get_data_of_products(prod))
     print(len(resources))
-    time.sleep(3)
+    time.sleep(5)
     return resources
 
 # Clean part_number of products
@@ -71,6 +71,7 @@ def replace_specific(string_s):
     l = k.replace("_", " ")
     m = l.replace("/", " ")
     n = m.replace("\\", " ")
+    lk = n.replace(".", " ")
     return n
 
 def car_model_choose(candidate, model):

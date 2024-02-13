@@ -1,64 +1,97 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-import os, re, openai
+import os, re, openai, time, csv
 from datetime import datetime
 from dotenv import load_dotenv
 import pandas as pd
+import aiohttp
+import asyncio
+from bs4 import BeautifulSoup
+import requests
 
 load_dotenv('search.config')
 openai_key = os.getenv('OPNEAI_KEY')
 condition = os.getenv('CONDITION_NEW')
 part_name = os.getenv('PART_COLLECTION')
-car_maker = os.getenv('CAR_MAKER')
-car_model = os.getenv('CAR_MODEL')
-year = os.getenv('YEAR')
 
-search_result = os.getenv('SEARCH_RESULT')
+cars = os.getenv('CAR')
+
+from_easyesarch = os.getenv('GET_CARS_FROM_EASYSEARCH_DB')
+easyesarch_file = os.getenv('EASYSEARCH_DB')
+
+xlsx_file_path = os.getenv('SEARCH_RESULT')
 
 openai.api_key = openai_key
 
-def get_candidate_list(condition, part_name, car_maker, car_model, car_year):
+async def fetch(url):
+    # Create HTTP session
+    async with aiohttp.ClientSession() as session:
+        # Make GET request using session
+        async with session.get(url) as response:
+            # Return text content
+            return await response.text()
 
-    print("--------------- Scraping Products: Candidate_Products ---------------")
-    driver = webdriver.Chrome()
-    url = f'https://www.ebay.com/sch/i.html?_nkw={"+".join(part_name.split(" "))}+{"+".join(car_maker.split(" "))}+{"+".join(car_model.split(" "))}+{car_year}{ "&LH_ItemCondition=3" if condition==True else ""}'
-    print(f'[Info] URL: {url}')
-    driver.get(url)
-    search_result = driver.find_elements(by=By.CLASS_NAME, value='s-item__info.clearfix')
+# Get each part numbers from part number string
+def get_part_number(part_number_string):
+    if part_number_string.strip().lower() == "Does not apply" or part_number_string.strip().lower() == 'N/A' or part_number_string.strip().lower() == 'N / A':
+        return None
+    elif " , " in part_number_string:
+        numbers = part_number_string.split(" , ")
+    elif ", " in part_number_string:
+        numbers = part_number_string.split(", ")
+    elif "," in part_number_string:
+        numbers = part_number_string.split(",")
+    elif " / " in part_number_string:
+        numbers = part_number_string.split(" / ")
+    elif "/ " in part_number_string:
+        numbers = part_number_string.split("/ ")
+    elif "/" in part_number_string:
+        numbers = part_number_string.split("/")
+    else:
+        numbers = [part_number_string]
+    
+    return_numbers =[i.strip() for i in numbers]
+    return return_numbers
+
+# Check Part Number and OEM Part Number with URL 
+async def check_part_number_and_oem_number(url):
+    content = await fetch(url)
+    soup = BeautifulSoup(content, 'html.parser')
+
+    # GET Title of product
+    # Extract deatiled infos
+    info  = soup.select("div#viTabs_0_is.vim.x-about-this-item div.ux-layout-section-module-evo div.ux-layout-section-evo.ux-layout-section--features")
+    product_info = {}
+    for i in info:
+        details = i.select("div.ux-layout-section-evo__col")
+        for y in details:
+            label = y.select("div.ux-labels-values__labels-content span")
+            value = y.select("div.ux-labels-values__values-content span")
+            if len(label):
+                product_info[label[0].text] = value[0].text
+    # Part Number and OEM Part Number
+    OEM_part_number = get_part_number(product_info.pop("OE/OEM Part Number")) if "OE/OEM Part Number" in product_info else None
+    # Manufacturer Part Number
+
+    return OEM_part_number
+
+async def get_search_result_on_ebay(condition, part_name, car_maker, car_model, car_year):
+    url = f'https://www.ebay.com/sch/i.html?_nkw={"+".join(part_name.split(" "))}+{"+".join(car_maker.split(" "))}+{"+".join(car_model.split(" "))}+{car_year}{ "&LH_ItemCondition=3" if condition.lower()=="true" else "&LH_ItemCondition=4"}&_ipg=240'
+    print(f'[Info] Search URL: {url}')
+    content = await fetch(url)
+    soup = BeautifulSoup(content, 'html.parser')
+    info  = soup.select("div.s-item__info.clearfix")
     result= []
 
-    for i in search_result:
+    for i in info:
         product_item = {}
-        title = i.find_element(by=By.CLASS_NAME, value="s-item__title")
-        product_item["title"] = title.find_element(by=By.TAG_NAME, value="span").text
-        product_item["url"] = i.find_element(by=By.TAG_NAME, value='a').get_attribute('href')
+        title = i.select("div.s-item__title")[0]
+        product_item["title"] = title.select("span")[0].text
+        product_item["url"] = i.select('a')[0].get_attribute_list('href')[0]
         result.append(product_item)
 
     print(f'[Info] Candidate Products: {len(result)}')
     return result
-
-def get_check_candidat_products(candidate_products, collection, car_maker, car_model, car_year):
-    products = []
-    print("-------------------- Checking candidate_Products --------------------")
-    for i, item in enumerate(candidate_products):
-        title = item["title"]
-        print(f'{i+1}: {title}')
-        maker = True if car_maker.split(" ")[0].lower() in title.lower() else False
-        model = True if car_model.split(" ")[0].lower() in title.lower() else False
-        year = check_years_from_title(title=title, require_year=car_year)
-        pro = compare_collection_title(title=title, collection=collection)
-        print(pro)
-        if maker and pro > 0.9:
-            collectin_check = get_part_name_using_openai(title=title, collection=collection, car_maker=car_maker, car_model=car_model)
-            print(f'Possibility: {"Yes" if collectin_check else "No"}')
-            print(f'-------------------------------------------------')
-            if collectin_check:
-                products.append(item)
-            # products.append(item)
-        else:
-            print(f'Possibility: No')
-            print(f'-------------------------------------------------')
-    return products 
 
 def check_years_from_title(title, require_year):
     years = []
@@ -96,51 +129,120 @@ def check_years_from_title(title, require_year):
         else:
             return False
 
-def get_part_name_using_openai(title, collection, car_maker, car_model):
-    prompt = f'Please answer whether following car part could be in this collection  of {collection} for {car_maker} {car_model}". You must answer "yes" or"No", Your answer must not include another words.'
-    message_box = [{"role": "system", "content": prompt}, {"role": "user", "content": f'{title}'}]
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=message_box
-    )
-    openai_answer = response.choices[0]["message"]["content"]
-    if 'yes' in openai_answer.lower():
+def check_model_from_title(title, car_model):
+    models = re.split(r'(\d+)', car_model)
+    if car_model.lower() in title.lower():
         return True
     else:
-        return False
+        if len(models) == 1:
+            return False
+        else:
+            new_model = f'{models[0]} {"".join(models[1::])}'
+            if new_model.lower() in title.lower():
+                return True
+            else:
+                return False  
 
 def compare_collection_title(title, collection):
     num = 0
     for i in collection.split(" "):
         if i.lower() in title.lower():
             num = num + 1
-    
+    # if collection.lower() in title.lower():
+    #     return True
+    # else:
+    #     return False
     return num/len(collection.split(" "))
 
-def write_result(products, collection, car_maker, car_model, car_year, file_path):
-    print("-------------------- Save checked products as xlsx --------------------")
-    print(f'[Info] Saving {len(products)} Products')
-    columns =  ['Collection','Car Maker','Car Model', 'Car Year','Link']
+async def main(require_cars):
+    result = {}
+    for car in require_cars:
+        print(f'------------Start searching production for {" ".join(car)} -----------------')
+        car_self = {}
+        search_result = await get_search_result_on_ebay(condition=condition, part_name=part_name, car_maker=car[0], car_model=car[1], car_year=car[2])
+        select = False
+        print(f'[Info] Check search result')
+        for i in search_result:
+            title = i["title"]
+            url = i["url"]
+            maker = True if car[0].split(" ")[0].lower() in title.lower() else False
+            model = check_model_from_title(title=title, car_model=car[1])
+            year = check_years_from_title(title=title, require_year=car[2])
+            pro = compare_collection_title(title=title, collection=part_name)
+            if maker and model and year and pro > 0.9:
+                oem_part_numer = await check_part_number_and_oem_number(url)
+                if oem_part_numer:
+                    if url in result:
+                        car_self[url] = oem_part_numer
+                    else:
+                        new = True
+                        for i in result:
+                            if i in result[i][0]:
+                                new = False
+                                car_self[i] = result[i][0]
+                                break
+                        if new:
+                            result[url] = [oem_part_numer, ["_".join(car)]]
+                            select = True
+                            print(f'[Info] Successfully find')
+                            break
+                else:
+                    pass
+            else:
+                pass
+        
+        if select == False:
+            if car_self:
+                result[list(car_self.keys())[0]][1].append("_".join(car))
+                print(f'[Info] Successfully find')
+            else:
+                print(f'[Info] There are no products we find')
+    print(f'[Info] Save checked products as xlsx')
+    columns =  ['Collection','Car','Link']
     coll = []
-    maker = []
-    model = []
-    year = []
+    car = []
     link = []
-    for i in products:
-        coll.append(collection)
-        maker.append(car_maker)
-        model.append(car_model)
-        year.append(car_year)
-        link.append(i["url"])
-    
-    df = pd.DataFrame(list(zip(coll,maker,model,year, link)), columns=columns)
+    for i in result:
+        coll.append(part_name)
+        car.append(",".join(result[i][1]))
+        link.append(i)
+    df = pd.DataFrame(list(zip(coll,car, link)), columns=columns)
+    # df.to_excel("list1.xlsx", index = False)
+    # print(search_result)
     try:
-        df.to_excel(file_path, index = False)
+        df.to_excel(xlsx_file_path, index = False)
         print("-------------------- Saved successfully --------------------")
     except:
         print("-------------------- Failed in saving --------------------")
 
+        
+        
+    
+def get_cars_easysearch(file_path):
+    cars = {}
+    with open(file_path, 'r', encoding='utf-8') as f:
+        files = csv.reader(f, delimiter=',', quotechar='"')
+        for i in files:
+            key = f'{i[0]},{i[1]},{i[2]}'
+            if key in cars:
+                pass
+            else:
+                cars[key]= i[0:3]
+    require_cars = list(cars.values())
+    return require_cars
+
+def get_car(cars):
+    c_car = re.findall(r'\[(.*?)\]', cars)
+    require_car = []
+    for i in c_car:
+        lk = i.split(",")
+        require_car.append(lk)
+    return require_car
+
 if __name__ == "__main__":
-    candidate_list = get_candidate_list(condition=condition, part_name=part_name, car_maker=car_maker, car_model=car_model, car_year=year)
-    products = get_check_candidat_products(candidate_products=candidate_list, collection=part_name, car_maker=car_maker, car_model=car_model, car_year=year)
-    write_result(products=products, collection=part_name, car_maker=car_maker, car_model=car_model, car_year=year, file_path=search_result)
+    if from_easyesarch.lower()=="true":
+        require_cars=get_cars_easysearch("easysearch.csv")
+    else:
+        require_cars = get_car(cars=cars)
+    
+    asyncio.run(main(require_cars=require_cars))   

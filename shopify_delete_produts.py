@@ -18,7 +18,7 @@ shopify.ShopifyResource.activate_session(session)
 if __name__ == "__main__":
     with open(remove_product_list) as f:
         remove_products = json.load(f)
-    
+    failed_products = []
     for product in remove_products:
         print("---------------------------------------")
         print(product["title"])
@@ -26,4 +26,8 @@ if __name__ == "__main__":
             shopify.Product.delete(product["id"])
             print("Successfully deleted project.")
         except:
+            failed_products.append(product)
             print("Failed to delete project.")
+    
+    with open(remove_product_list, 'w') as f:
+        json.dump(failed_products, f, indent=2)
